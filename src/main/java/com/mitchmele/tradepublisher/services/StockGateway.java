@@ -11,9 +11,6 @@ import java.util.List;
 @Component
 public interface StockGateway {
 
-    @Gateway(requestChannel = "stocksChannel")
-    void generateStocks(List<Stock> stocks);
-
     @Gateway(requestChannel = "single-stock-channel")
     void generateStock(Stock stocks);
 }

@@ -1,13 +1,8 @@
 package com.mitchmele.tradepublisher.config;
 
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Envelope;
-import org.springframework.amqp.core.MessageDeliveryMode;
-import org.springframework.amqp.core.MessageProperties;
-import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.amqp.rabbit.support.MessagePropertiesConverter;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
@@ -21,13 +16,15 @@ import org.springframework.integration.amqp.support.DefaultAmqpHeaderMapper;
 import org.springframework.integration.annotation.IntegrationComponentScan;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.IntegrationFlows;
+import org.springframework.integration.dsl.Pollers;
 import org.springframework.integration.dsl.Transformers;
+import org.springframework.integration.file.dsl.Files;
+import org.springframework.integration.handler.LoggingHandler;
 import org.springframework.messaging.MessageHeaders;
-
+import java.io.File;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @Configuration
 @IntegrationComponentScan
@@ -49,47 +46,33 @@ public class ProducerConfig {
     String routingKey;
 
 
-//    @Bean
-//    Queue queue() {
-//        return new Queue(queueName, false);
-//    }
+    @Bean
+    Queue queue() {
+        return new Queue(queueName, false);
+    }
 
     @Bean
     TopicExchange stockExchange() {
         return new TopicExchange(exchange, true, false);
     }
 
-    @Bean
-    TopicExchange singleStockExchange() {
-        return new TopicExchange(singleStockExchange, true, false);
-    }
 
-//    @Bean
-//    Binding binding(Queue queue, TopicExchange exchange) {
-//        return BindingBuilder.bind(queue).to(exchange).with(routingKey);
-//    }
+    @Bean
+    Binding binding(Queue queue, TopicExchange exchange) {
+        return BindingBuilder.bind(queue).to(exchange).with(routingKey);
+    }
 
     @Bean
     public MessageConverter jsonMessageConverter() {
         return new Jackson2JsonMessageConverter();
     }
 
-
-    @Bean
-    IntegrationFlow toOutboundFlow() {
-        return IntegrationFlows.from("stocksChannel")
-                .transform(Transformers.toJson())
-                .handle(Amqp.outboundAdapter(stocksRabbitTemplate()))
-                .get();
-    }
-
-
     @Bean
     IntegrationFlow toSingleStockFlow() {
         return IntegrationFlows.from("single-stock-channel")
                 .transform(Transformers.toJson())
-                .enrichHeaders(headerEnricherSpec -> headerEnricherSpec.header("STOCK_TYPE", "single"))
-                .handle(Amqp.outboundAdapter(singleStockRabbitTemplate())
+                .enrichHeaders(headerEnricherSpec -> headerEnricherSpec.header("Type", "STOCK"))
+                .handle(Amqp.outboundAdapter(stocksRabbitTemplate())
                         .headerMapper(headerMapper())
                         .headersMappedLast(true)
                         .mappedRequestHeaders("*")
@@ -97,7 +80,40 @@ public class ProducerConfig {
                 .get();
     }
 
+    @Bean
+    IntegrationFlow uploadBids() {
+        return IntegrationFlows.from(
+                Files.inboundAdapter(
+                        new File("./BOOT-INF/classes/static"))
+                        .patternFilter("*.json"), e -> e.poller(Pollers.fixedDelay(1000)))
+                .split(Files.splitter())
+                .log(LoggingHandler.Level.INFO, p -> "Handling new BID: " + p.getPayload())
+                .enrichHeaders(headerEnricherSpec -> headerEnricherSpec.header("Type", "BID"))
+//                .handle(Amqp.outboundAdapter(stocksRabbitTemplate())
+//                        .headerMapper(headerMapper())
+//                        .headersMappedLast(true)
+//                        .mappedRequestHeaders("*")
+//                )
+                .get();
+    }
 
+
+    @Bean
+    IntegrationFlow uploadAsks() {
+        return IntegrationFlows.from(
+                Files.inboundAdapter(
+                        new File("./BOOT-INF/classes/asks"))
+                        .patternFilter("*.json"), e -> e.poller(Pollers.fixedDelay(1000)))
+                .split(Files.splitter())
+                .log(LoggingHandler.Level.INFO, p -> "Handling new ASK: " + p.getPayload())
+                .enrichHeaders(headerEnricherSpec -> headerEnricherSpec.header("Type", "ASK"))
+//                .handle(Amqp.outboundAdapter(stocksRabbitTemplate())
+//                        .headerMapper(headerMapper())
+//                        .headersMappedLast(true)
+//                        .mappedRequestHeaders("*")
+//                )
+                .get();
+    }
 
     @Bean
     public DefaultAmqpHeaderMapper headerMapper() {
@@ -116,19 +132,10 @@ public class ProducerConfig {
         return headerMapper;
     }
 
-
     @Bean
     RabbitTemplate stocksRabbitTemplate() {
         RabbitTemplate r = new RabbitTemplate(rabbitConnectionFactory);
         r.setExchange(exchange);
-        r.setConnectionFactory(rabbitConnectionFactory);
-        return r;
-    }
-
-    @Bean
-    RabbitTemplate singleStockRabbitTemplate() {
-        RabbitTemplate r = new RabbitTemplate(rabbitConnectionFactory);
-        r.setExchange(singleStockExchange);
         r.setConnectionFactory(rabbitConnectionFactory);
         return r;
     }

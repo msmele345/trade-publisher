@@ -10,12 +10,7 @@ public class Stock {
 
     final static String DEFAULT_SYMBOL = "XYZ";
 
-    public Stock() {
-        this.symbol = DEFAULT_SYMBOL;
-        this.bid = 5.00;
-        this.offer = 5.50;
-        this.lastPrice = 5.25;
-    }
+    public Stock() { }
 
     public Stock(String symbol, Double bid, Double offer, Double lastPrice) {
         this.symbol = symbol;

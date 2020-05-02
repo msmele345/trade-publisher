@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -20,17 +22,15 @@ public class StocksController {
     public StocksController() {
     }
 
-    @PostMapping(value = "/stocks")
-    public @ResponseBody ResponseEntity<List<Stock>> postNewStocks(@RequestBody List<Stock> stocks) {
-        logger.info("Sending Message: {} to stocks queue.", stocks);
-        stocksGateway.generateStocks(stocks);
-        return ResponseEntity.ok().body(stocks);
-    }
-
     @PostMapping("/single/stock")
     public @ResponseBody ResponseEntity<Stock> postStock(@RequestBody Stock stock) {
-        logger.info("Sending Message: {} to single-stock-queue.", stock);
+        logger.info("SENDING MESSAGE: {} to single-stock-queue. SYMBOL: ", stock.getSymbol());
         stocksGateway.generateStock(stock);
         return ResponseEntity.ok().body(stock);
+    }
+
+
+    private void displayStocks(List<Stock> stocks) {
+        stocks.forEach(stock -> System.out.println(stock.getSymbol()));
     }
 }
