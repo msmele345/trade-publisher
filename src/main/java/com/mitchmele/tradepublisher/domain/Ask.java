@@ -24,12 +24,10 @@ public class Ask implements StockEntity {
                 '}';
     }
 
-    @Override
     public String getSymbol() {
         return symbol;
     }
 
-    @Override
     public String getType() {
         return ENTITY_TYPE;
     }

@@ -38,7 +38,7 @@ public class Bid implements StockEntity {
         return symbol;
     }
 
-    @Override
+
     public String getType() {
         return type;
     }

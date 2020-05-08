@@ -1,5 +1,6 @@
 package com.mitchmele.tradepublisher.config;
 
+import com.mitchmele.tradepublisher.services.StockEntityHeaderEnricher;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -20,7 +21,9 @@ import org.springframework.integration.dsl.Pollers;
 import org.springframework.integration.dsl.Transformers;
 import org.springframework.integration.file.dsl.Files;
 import org.springframework.integration.handler.LoggingHandler;
+import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
+
 import java.io.File;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -81,7 +84,9 @@ public class ProducerConfig {
     }
 
     @Bean
-    IntegrationFlow uploadBids() {
+    IntegrationFlow uploadBids(
+            StockEntityHeaderEnricher stockEntityHeaderEnricher
+    ) {
         return IntegrationFlows.from(
                 Files.inboundAdapter(
                         new File("./BOOT-INF/classes/static"))
@@ -89,17 +94,20 @@ public class ProducerConfig {
                 .split(Files.splitter())
                 .log(LoggingHandler.Level.INFO, p -> "Handling new BID: " + p.getPayload())
                 .enrichHeaders(headerEnricherSpec -> headerEnricherSpec.header("Type", "BID"))
-//                .handle(Amqp.outboundAdapter(stocksRabbitTemplate())
-//                        .headerMapper(headerMapper())
-//                        .headersMappedLast(true)
-//                        .mappedRequestHeaders("*")
-//                )
+                .handle(stockEntityHeaderEnricher)
+                .handle(Amqp.outboundAdapter(stocksRabbitTemplate())
+                        .headerMapper(headerMapper())
+                        .headersMappedLast(true)
+                        .mappedRequestHeaders("*")
+                )
                 .get();
     }
 
 
     @Bean
-    IntegrationFlow uploadAsks() {
+    IntegrationFlow uploadAsks(
+            StockEntityHeaderEnricher stockEntityHeaderEnricher
+    ) {
         return IntegrationFlows.from(
                 Files.inboundAdapter(
                         new File("./BOOT-INF/classes/asks"))
@@ -107,11 +115,12 @@ public class ProducerConfig {
                 .split(Files.splitter())
                 .log(LoggingHandler.Level.INFO, p -> "Handling new ASK: " + p.getPayload())
                 .enrichHeaders(headerEnricherSpec -> headerEnricherSpec.header("Type", "ASK"))
-//                .handle(Amqp.outboundAdapter(stocksRabbitTemplate())
-//                        .headerMapper(headerMapper())
-//                        .headersMappedLast(true)
-//                        .mappedRequestHeaders("*")
-//                )
+                .handle(stockEntityHeaderEnricher)
+                .handle(Amqp.outboundAdapter(stocksRabbitTemplate())
+                        .headerMapper(headerMapper())
+                        .headersMappedLast(true)
+                        .mappedRequestHeaders("*")
+                )
                 .get();
     }
 
